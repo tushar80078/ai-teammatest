@@ -1,7 +1,7 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { revalidatePath } from "next/cache"
+import { refresh } from "next/cache"
 
 import { db } from "@/db"
 import {
@@ -45,6 +45,7 @@ export async function createBot(input: InsertBot): Promise<CreateBotResult> {
     return { bot, chat }
   })
 
-  revalidatePath("/")
+  // Re-render the dashboard layout so the sidebar re-runs getUserChats
+  refresh()
   return { bot, chat }
 }

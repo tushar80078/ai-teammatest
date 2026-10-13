@@ -13,6 +13,13 @@ function ThemeProvider({
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange
+      // The theme script only needs to run in the server HTML. On the client,
+      // mark it as a data block so React 19 doesn't warn about an inert script.
+      scriptProps={
+        typeof window === "undefined"
+          ? undefined
+          : { type: "application/json", suppressHydrationWarning: true }
+      }
       {...props}
     >
       <ThemeHotkey />

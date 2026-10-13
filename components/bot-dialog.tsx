@@ -66,18 +66,25 @@ function emptyBot(): InsertBot {
   return { name: "", avatar: nanoid(), job: "", instructions: "" }
 }
 
-function BotDialog() {
-  const [open, setOpen] = useState(false)
+// Uncontrolled, it renders its own "Create a new bot" trigger. Pass `open` and
+// `onOpenChange` to open it from elsewhere (e.g. a menu item) without a trigger.
+function BotDialog({
+  open: openProp,
+  onOpenChange,
+}: {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const isControlled = openProp !== undefined
+  const open = isControlled ? openProp : uncontrolledOpen
+  const setOpen = onOpenChange ?? setUncontrolledOpen
+
   const form = useForm<InsertBot>({
     resolver: zodResolver(insertBotSchema),
     defaultValues: emptyBot(),
   })
   const avatar = useWatch({ control: form.control, name: "avatar" })
-
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) form.reset(emptyBot())
-    setOpen(nextOpen)
-  }
 
   async function onSubmit(values: InsertBot) {
     const result = await createBot(values)
@@ -90,11 +97,20 @@ function BotDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="secondary" size="lg" />}>
-        <PlusIcon data-icon="inline-start" />
-        Create a new bot
-      </DialogTrigger>
+    <Dialog
+      open={open}
+      onOpenChange={setOpen}
+      // Start fresh (new face, empty fields) once the close animation ends
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) form.reset(emptyBot())
+      }}
+    >
+      {!isControlled && (
+        <DialogTrigger render={<Button variant="secondary" size="lg" />}>
+          <PlusIcon data-icon="inline-start" />
+          Create a new bot
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New bot</DialogTitle>
