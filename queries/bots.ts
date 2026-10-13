@@ -1,26 +1,17 @@
 import "server-only"
 
 import { auth } from "@clerk/nextjs/server"
-import { asc, desc, eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { db } from "@/db"
-import { chatMembers, chats } from "@/db/schema"
+import { bots } from "@/db/schema"
 
-// The signed-in user's chats, most recent first, with each chat's bots in
-// the order they joined
-export async function getUserChats() {
+// One of the signed-in user's bots, or undefined if it doesn't exist or
+// belongs to someone else
+export async function getBotById(botId: string) {
   const { userId } = await auth.protect()
 
-  return db.query.chats.findMany({
-    where: eq(chats.userId, userId),
-    orderBy: desc(chats.lastMessageAt),
-    with: {
-      members: {
-        orderBy: asc(chatMembers.joinedAt),
-        with: { bot: true },
-      },
-    },
+  return db.query.bots.findFirst({
+    where: and(eq(bots.id, botId), eq(bots.userId, userId)),
   })
 }
-
-export type UserChat = Awaited<ReturnType<typeof getUserChats>>[number]

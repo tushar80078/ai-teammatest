@@ -1,13 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactElement, type ReactNode } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { PlusIcon, ShuffleIcon } from "lucide-react"
+import { PlusIcon, ShuffleIcon, Trash2Icon } from "lucide-react"
 import { nanoid } from "nanoid"
 import { Controller, useForm, useWatch } from "react-hook-form"
 
-import { createBot } from "@/actions/bot"
+import { createBot, deleteBot, updateBot } from "@/actions/bot"
 import { ChatAvatar } from "@/components/chat-avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -37,7 +48,7 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
-import { insertBotSchema, type InsertBot } from "@/db/schema"
+import { insertBotSchema, type Bot, type InsertBot } from "@/db/schema"
 
 const presets = [
   {
@@ -62,18 +73,82 @@ const presets = [
   },
 ]
 
-function emptyBot(): InsertBot {
+// A blank bot to create, or the given bot's current values to edit
+function botDefaults(bot?: Bot): InsertBot {
+  if (bot) {
+    return {
+      name: bot.name,
+      avatar: bot.avatar,
+      job: bot.job,
+      instructions: bot.instructions ?? "",
+    }
+  }
   return { name: "", avatar: nanoid(), job: "", instructions: "" }
 }
 
-// Uncontrolled, it renders its own "Create a new bot" trigger. Pass `open` and
-// `onOpenChange` to open it from elsewhere (e.g. a menu item) without a trigger.
+// Asks for confirmation, then deletes the bot and its direct chat. On success
+// the action redirects home, so only failures come back here
+function DeleteBotButton({ bot }: { bot: Bot }) {
+  const [open, setOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function onDelete() {
+    setIsDeleting(true)
+    const result = await deleteBot(bot.id)
+    setIsDeleting(false)
+    toast.add({ title: result.error, type: "error" })
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger
+        render={
+          <Button type="button" variant="destructive" className="sm:mr-auto" />
+        }
+      >
+        <Trash2Icon data-icon="inline-start" />
+        Delete
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {bot.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This deletes the bot and its chat. You can&apos;t undo this.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={isDeleting}
+            onClick={onDelete}
+          >
+            {isDeleting && <Spinner data-icon="inline-start" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+// Creates a bot, or edits `bot` when one is passed.
+// Uncontrolled, it renders its own trigger: `trigger` (an element) with
+// `children` as its content, or a "Create a new bot" button by default. Pass
+// `open` and `onOpenChange` to open it from elsewhere (e.g. a menu item)
+// without a trigger.
 function BotDialog({
+  bot,
   open: openProp,
   onOpenChange,
+  trigger,
+  children,
 }: {
+  bot?: Bot
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  trigger?: ReactElement
+  children?: ReactNode
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const isControlled = openProp !== undefined
@@ -82,17 +157,24 @@ function BotDialog({
 
   const form = useForm<InsertBot>({
     resolver: zodResolver(insertBotSchema),
-    defaultValues: emptyBot(),
+    defaultValues: botDefaults(bot),
   })
   const avatar = useWatch({ control: form.control, name: "avatar" })
 
   async function onSubmit(values: InsertBot) {
-    const result = await createBot(values)
+    const result = bot
+      ? await updateBot(bot.id, values)
+      : await createBot(values)
     if ("error" in result) {
       form.setError("root", { message: result.error })
       return
     }
-    toast.add({ title: `${result.bot.name} is ready`, type: "success" })
+    toast.add({
+      title: bot
+        ? `${result.bot.name} is updated`
+        : `${result.bot.name} is ready`,
+      type: "success",
+    })
     setOpen(false)
   }
 
@@ -100,22 +182,28 @@ function BotDialog({
     <Dialog
       open={open}
       onOpenChange={setOpen}
-      // Start fresh (new face, empty fields) once the close animation ends
+      // Start fresh once the close animation ends: a new face and empty
+      // fields to create, or the bot's saved values to edit
       onOpenChangeComplete={(isOpen) => {
-        if (!isOpen) form.reset(emptyBot())
+        if (!isOpen) form.reset(botDefaults(bot))
       }}
     >
-      {!isControlled && (
-        <DialogTrigger render={<Button variant="secondary" size="lg" />}>
-          <PlusIcon data-icon="inline-start" />
-          Create a new bot
-        </DialogTrigger>
-      )}
+      {!isControlled &&
+        (trigger ? (
+          <DialogTrigger render={trigger}>{children}</DialogTrigger>
+        ) : (
+          <DialogTrigger render={<Button variant="secondary" size="lg" />}>
+            <PlusIcon data-icon="inline-start" />
+            Create a new bot
+          </DialogTrigger>
+        ))}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New bot</DialogTitle>
+          <DialogTitle>{bot ? "Edit bot" : "New bot"}</DialogTitle>
           <DialogDescription>
-            Give it a face, a name, and a job to do.
+            {bot
+              ? "Change its face, name, or job."
+              : "Give it a face, a name, and a job to do."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap gap-2">
@@ -225,6 +313,7 @@ function BotDialog({
           </FieldGroup>
         </form>
         <DialogFooter>
+          {bot && <DeleteBotButton bot={bot} />}
           <DialogClose render={<Button variant="outline" />}>
             Cancel
           </DialogClose>
@@ -236,7 +325,7 @@ function BotDialog({
             {form.formState.isSubmitting && (
               <Spinner data-icon="inline-start" />
             )}
-            Create bot
+            {bot ? "Save changes" : "Create bot"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -17,7 +17,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Kbd } from "@/components/ui/kbd"
-import type { UserChat } from "@/queries/bots"
+import type { UserChat } from "@/queries/chats"
 
 // The platform never changes, so there is nothing to subscribe to
 function subscribe() {
@@ -53,15 +53,20 @@ function ChatSearch({ chats }: { chats: UserChat[] }) {
 
   return (
     <>
-      {/* Input's classes on a ghost Button, so it keeps the button hover */}
+      {/* Input's classes on a ghost Button, so it keeps the button hover.
+          In the collapsed sidebar it becomes a plain icon button, the same
+          size as the sidebar menu buttons */}
       <Button
         variant="ghost"
+        aria-label="Search chats"
         onClick={() => setOpen(true)}
-        className="h-8 w-full min-w-0 justify-start rounded-lg border border-input bg-transparent px-2.5 py-1 text-base font-normal text-muted-foreground transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+        className="h-8 w-full min-w-0 justify-start rounded-lg border border-input bg-transparent px-2.5 py-1 text-base font-normal text-muted-foreground transition-colors group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:p-0! focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30 dark:group-data-[collapsible=icon]:bg-transparent"
       >
         <SearchIcon data-icon="inline-start" />
-        Search
-        <Kbd className="ml-auto">{isMac ? "⌘K" : "Ctrl K"}</Kbd>
+        <span className="group-data-[collapsible=icon]:hidden">Search</span>
+        <Kbd className="ml-auto group-data-[collapsible=icon]:hidden">
+          {isMac ? "⌘K" : "Ctrl K"}
+        </Kbd>
       </Button>
       <CommandDialog
         open={open}

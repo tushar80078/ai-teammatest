@@ -2,7 +2,7 @@ import { cookies } from "next/headers"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { getUserChats } from "@/queries/bots"
+import { getUserChats } from "@/queries/chats"
 
 export default async function DashboardLayout({
   children,

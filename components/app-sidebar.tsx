@@ -29,16 +29,17 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
   sidebarMenuButtonVariants,
 } from "@/components/ui/sidebar"
-import type { UserChat } from "@/queries/bots"
+import type { UserChat } from "@/queries/chats"
 
 function AppSidebar({ chats }: { chats: UserChat[] }) {
   const [botDialogOpen, setBotDialogOpen] = useState(false)
   const pathname = usePathname()
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex justify-end">
           <DropdownMenu>
@@ -74,6 +75,7 @@ function AppSidebar({ chats }: { chats: UserChat[] }) {
                 // Group chats aren't handled yet; use the first bot to join
                 const bot = chat.members[0]?.bot
                 const href = `/chats/${chat.id}`
+                const name = chat.name ?? bot?.name ?? "Untitled chat"
 
                 return (
                   <SidebarMenuItem key={chat.id}>
@@ -81,13 +83,18 @@ function AppSidebar({ chats }: { chats: UserChat[] }) {
                       size="lg"
                       render={<Link href={href} />}
                       isActive={pathname === href}
+                      tooltip={name}
+                      className="group-data-[collapsible=icon]:justify-center"
                     >
-                      <ChatAvatar seed={bot?.avatar ?? chat.id} />
-                      <div className="flex min-w-0 flex-1 flex-col">
+                      {/* Shrinks to icon size when collapsed so every button
+                          in the icon rail has the same visual weight */}
+                      <ChatAvatar
+                        seed={bot?.avatar ?? chat.id}
+                        className="group-data-[collapsible=icon]:size-5"
+                      />
+                      <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="truncate font-medium">
-                            {chat.name ?? bot?.name ?? "Untitled chat"}
-                          </span>
+                          <span className="truncate font-medium">{name}</span>
                           <span
                             className="shrink-0 text-xs text-muted-foreground"
                             suppressHydrationWarning
@@ -124,19 +131,21 @@ function AppSidebar({ chats }: { chats: UserChat[] }) {
                   userButtonTrigger: sidebarMenuButtonVariants({
                     size: "lg",
                     className:
-                      "w-full! justify-start! shadow-none! hover:bg-sidebar-accent! hover:text-sidebar-accent-foreground! focus-visible:ring-2! active:bg-sidebar-accent! active:text-sidebar-accent-foreground! aria-expanded:bg-sidebar-accent! aria-expanded:text-sidebar-accent-foreground!",
+                      "w-full! justify-start! shadow-none! group-data-[collapsible=icon]:justify-center! hover:bg-sidebar-accent! hover:text-sidebar-accent-foreground! focus-visible:ring-2! active:bg-sidebar-accent! active:text-sidebar-accent-foreground! aria-expanded:bg-sidebar-accent! aria-expanded:text-sidebar-accent-foreground!",
                   }),
                   userButtonBox:
                     "w-full min-w-0 flex-row-reverse justify-end gap-2 text-inherit",
-                  userButtonAvatarBox: "size-6!",
+                  userButtonAvatarBox:
+                    "size-6! group-data-[collapsible=icon]:size-5!",
                   userButtonOuterIdentifier:
-                    "truncate p-0 text-sm font-medium text-inherit",
+                    "truncate p-0 text-sm font-medium text-inherit group-data-[collapsible=icon]:hidden",
                 },
               }}
             />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   )
 }
