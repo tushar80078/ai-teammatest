@@ -18,6 +18,21 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - This is a development project. There is no backwards compatibility and the data is worthless.
 - Prefer data loss: never backfill, migrate, or preserve existing rows, and never spend effort keeping old data working. Every schema change means a clean slate.
 
+## Forms
+Reference implementation: `components/bot-dialog.tsx` + `actions/bot.ts` + `insertBotSchema` in `db/schema.ts`.
+
+- **One schema, derived from the table.** Build the validation schema with `createInsertSchema` from `drizzle-zod`, next to the table in `db/schema.ts`. Refine fields there (trim, min/max, user-facing messages) and `.omit()` everything the server sets (`id`, `userId`, timestamps, third-party IDs). Export its type with `z.infer`. Never hand-write a parallel zod schema or form type.
+- **Same schema on both sides.** The client form uses it via `zodResolver`; the server action re-validates with `safeParse` before touching the database. Client validation is UX only.
+- **Server actions live in `actions/<entity>.ts`** with `"use server"`. Start every action with `await auth.protect()` from `@clerk/nextjs/server` and take `userId` from it, never from input. Return `{ <entity> } | { error: string }` (e.g. `{ bot }`) instead of throwing for expected failures, and call `revalidatePath` after a mutation.
+- **Client form = react-hook-form + shadcn `Field` composition.** Each input is a `Controller` rendering `Field data-invalid` → `FieldLabel htmlFor` → control with matching `id` and `aria-invalid` → `FieldError` when invalid. Wrap fields in `FieldGroup`. Use `Input`, `Textarea`, etc. from `components/ui`, never raw elements or `space-y-*` layouts.
+- **Nullable text columns:** pass `value={field.value ?? ""}` to the control and store empty strings as `null` in the action.
+- **Read live values with `useWatch`**, not `form.watch()` (the React Compiler can't memoize `watch`).
+- **Server errors go to `form.setError("root", …)`** and render with a `FieldError`; success feedback uses `toast.add()` from `@/components/ui/toast`.
+- **Forms in dialogs:** give the `<form>` an `id` and put the submit `Button` in `DialogFooter` with `form="<id>"`. Cancel is `DialogClose render={<Button variant="outline" />}`. Control `open` state, `form.reset()` with fresh defaults when the dialog opens, and close it on success. While submitting, disable the submit button and show a `Spinner data-icon="inline-start"`.
+- **Non-submit buttons inside a form** (presets, shuffle) need `type="button"`; set values with `form.setValue`.
+- **Defaults that must be random** (nanoid seeds, etc.) are generated in a function called on reset, not as module constants.
+- **Installing form deps:** `@hookform/resolvers` has an optional peer on zod 3 that conflicts with zod 4; use `npm i --legacy-peer-deps`.
+
 ## DiceBear
 
 Use DiceBear 10. Documentation: https://www.dicebear.com/llms.txt
