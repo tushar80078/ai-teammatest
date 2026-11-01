@@ -26,7 +26,7 @@ export const bots = pgTable(
       .$defaultFn(() => nanoid()),
     job: text("job").notNull(),
     instructions: text("instructions"),
-    // Sandbox provider ID, created lazily
+    // Daytona sandbox ID, created with the bot and deleted with it
     sandboxId: text("sandbox_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

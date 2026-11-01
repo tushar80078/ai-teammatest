@@ -5,7 +5,7 @@ import {
   useLoadTranscript,
   useTriggerChatTransport,
 } from "@trigger.dev/sdk/chat/react"
-import type { UIMessage } from "ai"
+import { isToolUIPart, type InferUITools, type ToolUIPart } from "ai"
 
 import {
   loadTranscript,
@@ -18,6 +18,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation"
+import { Image } from "@/components/ai-elements/image"
 import {
   Message,
   MessageContent,
@@ -31,9 +32,79 @@ import {
   PromptInputTextarea,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input"
-import type { aiChat } from "@/trigger/chat"
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool"
+import type { aiChat, ChatUIMessage } from "@/trigger/chat"
+import type { createComputerTools } from "@/trigger/computer-tools"
 
 type Transport = ReturnType<typeof useTriggerChatTransport<typeof aiChat>>
+
+type ChatToolPart = ToolUIPart<
+  InferUITools<ReturnType<typeof createComputerTools>>
+>
+
+// Plain-language names for the tool call headers
+const toolTitles: Record<ChatToolPart["type"], string> = {
+  "tool-bash": "Run command",
+  "tool-readFile": "Read file",
+  "tool-writeFile": "Write file",
+  "tool-listFiles": "List files",
+  "tool-mouseClick": "Click",
+  "tool-mouseMove": "Move mouse",
+  "tool-mouseScroll": "Scroll",
+  "tool-keyboardType": "Type",
+  "tool-keyboardPress": "Press key",
+  "tool-viewScreen": "Look at screen",
+  "tool-showScreen": "Show screen",
+}
+
+function ToolCall({ part }: { part: ChatToolPart }) {
+  const title = toolTitles[part.type]
+
+  // The screenshot is for the agent only, so just show that it looked
+  if (part.type === "tool-viewScreen") {
+    return (
+      <Tool>
+        <ToolHeader type={part.type} state={part.state} title={title} />
+      </Tool>
+    )
+  }
+
+  if (part.type === "tool-showScreen") {
+    return (
+      <Tool defaultOpen>
+        <ToolHeader type={part.type} state={part.state} title={title} />
+        <ToolContent>
+          {part.state === "output-available" ? (
+            <Image
+              base64={part.output.data}
+              mediaType={part.output.mediaType}
+              uint8Array={new Uint8Array()}
+              alt="Screenshot of the agent's desktop"
+            />
+          ) : (
+            <ToolOutput output={undefined} errorText={part.errorText} />
+          )}
+        </ToolContent>
+      </Tool>
+    )
+  }
+
+  return (
+    <Tool>
+      <ToolHeader type={part.type} state={part.state} title={title} />
+      <ToolContent>
+        <ToolInput input={part.input} />
+        <ToolOutput output={part.output} errorText={part.errorText} />
+      </ToolContent>
+    </Tool>
+  )
+}
 
 function Chat({ id }: { id: string }) {
   const transport = useTriggerChatTransport<typeof aiChat>({
@@ -50,7 +121,14 @@ function Chat({ id }: { id: string }) {
   // useChat must mount with the loaded transcript as its initial messages
   if (isLoading) return <div className="flex-1" />
 
-  return <ChatView id={id} initialMessages={messages} transport={transport} />
+  // The transcript store is untyped; it holds messages this agent wrote
+  return (
+    <ChatView
+      id={id}
+      initialMessages={messages as ChatUIMessage[]}
+      transport={transport}
+    />
+  )
 }
 
 function ChatView({
@@ -59,7 +137,7 @@ function ChatView({
   transport,
 }: {
   id: string
-  initialMessages: UIMessage[]
+  initialMessages: ChatUIMessage[]
   transport: Transport
 }) {
   const { messages, sendMessage, status, stop } = useChat({
@@ -86,11 +164,17 @@ function ChatView({
             messages.map((message) => (
               <Message from={message.role} key={message.id}>
                 <MessageContent>
-                  {message.parts.map((part, i) =>
-                    part.type === "text" ? (
-                      <MessageResponse key={i}>{part.text}</MessageResponse>
-                    ) : null
-                  )}
+                  {message.parts.map((part, i) => {
+                    if (part.type === "text") {
+                      return (
+                        <MessageResponse key={i}>{part.text}</MessageResponse>
+                      )
+                    }
+                    if (isToolUIPart(part) && part.type !== "dynamic-tool") {
+                      return <ToolCall key={part.toolCallId} part={part} />
+                    }
+                    return null
+                  })}
                 </MessageContent>
               </Message>
             ))
