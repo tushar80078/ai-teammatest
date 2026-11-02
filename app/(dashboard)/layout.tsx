@@ -15,9 +15,14 @@ export default async function DashboardLayout({
   const chats = await getUserChats()
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
+    // The dashboard is exactly one screen tall and never scrolls as a page;
+    // each page decides which of its parts scroll
+    <SidebarProvider
+      defaultOpen={defaultOpen}
+      className="h-svh min-h-0 overflow-hidden"
+    >
       <AppSidebar chats={chats} />
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset className="min-h-0 overflow-hidden">{children}</SidebarInset>
     </SidebarProvider>
   )
 }

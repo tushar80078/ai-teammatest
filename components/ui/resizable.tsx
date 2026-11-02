@@ -19,8 +19,22 @@ function ResizablePanelGroup({
   )
 }
 
-function ResizablePanel({ ...props }: ResizablePrimitive.PanelProps) {
-  return <ResizablePrimitive.Panel data-slot="resizable-panel" {...props} />
+// The library wraps the content in a div with overflow: auto and no height, so
+// content taller than the panel scrolls the whole panel. Give it the panel's
+// full height and clip it, so the content decides what scrolls
+function ResizablePanel({
+  className,
+  style,
+  ...props
+}: ResizablePrimitive.PanelProps) {
+  return (
+    <ResizablePrimitive.Panel
+      data-slot="resizable-panel"
+      className={cn("h-full", className)}
+      style={{ overflow: "hidden", ...style }}
+      {...props}
+    />
+  )
 }
 
 function ResizableHandle({

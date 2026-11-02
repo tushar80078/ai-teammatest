@@ -154,7 +154,7 @@ function ChatView({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Conversation className="min-h-0 flex-1">
-        <ConversationContent className="mx-auto w-full max-w-3xl">
+        <ConversationContent className="mx-auto w-full max-w-4xl">
           {messages.length === 0 ? (
             <ConversationEmptyState
               title="Start a conversation"
@@ -182,7 +182,7 @@ function ChatView({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="mx-auto w-full max-w-3xl p-4 pt-0">
+      <div className="mx-auto w-full max-w-4xl shrink-0 p-4 pt-0">
         <PromptInput onSubmit={handleSubmit}>
           <PromptInputBody>
             <PromptInputTextarea />

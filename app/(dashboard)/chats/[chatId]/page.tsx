@@ -2,6 +2,16 @@ import { notFound } from "next/navigation"
 
 import { Chat } from "@/components/chat"
 import { ChatHeader } from "@/components/chat-header"
+import {
+  DesktopPanelProvider,
+  DesktopPanelSlot,
+  DesktopPreview,
+} from "@/components/desktop-panel"
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable"
 import { getChatById } from "@/queries/chats"
 
 export default async function ChatPage(props: PageProps<"/chats/[chatId]">) {
@@ -11,9 +21,22 @@ export default async function ChatPage(props: PageProps<"/chats/[chatId]">) {
   if (!chat) notFound()
 
   return (
-    <div className="flex h-svh flex-col">
-      <ChatHeader chat={chat} />
-      <Chat id={chat.id} />
-    </div>
+    <DesktopPanelProvider chatId={chat.id}>
+      <ResizablePanelGroup>
+        <ResizablePanel id="chat" minSize="30%">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <ChatHeader chat={chat} />
+            <Chat id={chat.id} />
+          </div>
+        </ResizablePanel>
+        {/* Opened by the desktop button in the chat header */}
+        <DesktopPanelSlot>
+          <ResizableHandle withHandle />
+          <ResizablePanel id="desktop" defaultSize="40%" minSize="20%">
+            <DesktopPreview />
+          </ResizablePanel>
+        </DesktopPanelSlot>
+      </ResizablePanelGroup>
+    </DesktopPanelProvider>
   )
 }
