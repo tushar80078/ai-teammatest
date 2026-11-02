@@ -10,6 +10,8 @@ import { PlusIcon, UsersIcon } from "lucide-react"
 import { BotDialog } from "@/components/bot-dialog"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { ChatSearch } from "@/components/chat-search"
+import { GroupChatAvatar } from "@/components/group-chat-avatar"
+import { GroupChatDialog } from "@/components/group-chat-dialog"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -32,10 +34,12 @@ import {
   SidebarRail,
   sidebarMenuButtonVariants,
 } from "@/components/ui/sidebar"
+import type { Bot } from "@/db/schema"
 import type { UserChat } from "@/queries/chats"
 
-function AppSidebar({ chats }: { chats: UserChat[] }) {
+function AppSidebar({ chats, bots }: { chats: UserChat[]; bots: Bot[] }) {
   const [botDialogOpen, setBotDialogOpen] = useState(false)
+  const [groupChatDialogOpen, setGroupChatDialogOpen] = useState(false)
   const pathname = usePathname()
 
   return (
@@ -55,7 +59,7 @@ function AppSidebar({ chats }: { chats: UserChat[] }) {
                   <PlusIcon />
                   Create new bot
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setGroupChatDialogOpen(true)}>
                   <UsersIcon />
                   Create group chat
                 </DropdownMenuItem>
@@ -65,6 +69,11 @@ function AppSidebar({ chats }: { chats: UserChat[] }) {
         </div>
         <ChatSearch chats={chats} />
         <BotDialog open={botDialogOpen} onOpenChange={setBotDialogOpen} />
+        <GroupChatDialog
+          bots={bots}
+          open={groupChatDialogOpen}
+          onOpenChange={setGroupChatDialogOpen}
+        />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -72,7 +81,7 @@ function AppSidebar({ chats }: { chats: UserChat[] }) {
           <SidebarGroupContent>
             <SidebarMenu>
               {chats.map((chat) => {
-                // Group chats aren't handled yet; use the first bot to join
+                // A direct chat has one bot, whose face and name it shows
                 const bot = chat.members[0]?.bot
                 const href = `/chats/${chat.id}`
                 const name = chat.name ?? bot?.name ?? "Untitled chat"
@@ -88,10 +97,19 @@ function AppSidebar({ chats }: { chats: UserChat[] }) {
                     >
                       {/* Shrinks to icon size when collapsed so every button
                           in the icon rail has the same visual weight */}
-                      <ChatAvatar
-                        seed={bot?.avatar ?? chat.id}
-                        className="group-data-[collapsible=icon]:size-5"
-                      />
+                      {chat.kind === "group" ? (
+                        <GroupChatAvatar
+                          seeds={chat.members.map(
+                            (member) => member.bot.avatar
+                          )}
+                          className="group-data-[collapsible=icon]:size-5"
+                        />
+                      ) : (
+                        <ChatAvatar
+                          seed={bot?.avatar ?? chat.id}
+                          className="group-data-[collapsible=icon]:size-5"
+                        />
+                      )}
                       <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
                         <div className="flex items-baseline justify-between gap-2">
                           <span className="truncate font-medium">{name}</span>

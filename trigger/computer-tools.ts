@@ -43,28 +43,40 @@ function screenshotToModelOutput(note: string) {
 
 // Tools that drive one sandbox. `getSandboxId` is only called on the first
 // tool call of a turn, so turns without tool calls never touch Daytona
+// `getSandboxId` can change mid-turn (a group chat handoff), so sandboxes are
+// cached per ID and each call reaches whichever bot is answering now
 export function createComputerTools(getSandboxId: () => Promise<string>) {
-  let sandbox: Promise<Sandbox> | undefined
-  let desktop: Promise<Sandbox> | undefined
+  const sandboxes = new Map<string, Promise<Sandbox>>()
+  const desktops = new Map<string, Promise<Sandbox>>()
 
   // The sandbox auto-stops when idle, so start it again if needed
-  function getSandbox() {
-    sandbox ??= (async () => {
-      const found = await getDaytona().get(await getSandboxId())
-      if (found.state !== "started") await found.start()
-      return found
-    })()
+  async function getSandbox() {
+    const id = await getSandboxId()
+    let sandbox = sandboxes.get(id)
+    if (!sandbox) {
+      sandbox = (async () => {
+        const found = await getDaytona().get(id)
+        if (found.state !== "started") await found.start()
+        return found
+      })()
+      sandboxes.set(id, sandbox)
+    }
     return sandbox
   }
 
   // The desktop processes don't survive a sandbox stop, so start them too
-  function getDesktop() {
-    desktop ??= (async () => {
-      const found = await getSandbox()
-      const { status } = await found.computerUse.getStatus()
-      if (status !== "active") await found.computerUse.start()
-      return found
-    })()
+  async function getDesktop() {
+    const id = await getSandboxId()
+    let desktop = desktops.get(id)
+    if (!desktop) {
+      desktop = (async () => {
+        const found = await getSandbox()
+        const { status } = await found.computerUse.getStatus()
+        if (status !== "active") await found.computerUse.start()
+        return found
+      })()
+      desktops.set(id, desktop)
+    }
     return desktop
   }
 

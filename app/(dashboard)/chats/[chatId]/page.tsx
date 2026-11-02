@@ -26,7 +26,15 @@ export default async function ChatPage(props: PageProps<"/chats/[chatId]">) {
         <ResizablePanel id="chat" minSize="30%">
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <ChatHeader chat={chat} />
-            <Chat id={chat.id} />
+            <Chat
+              id={chat.id}
+              // A group chat's composer picks which of its bots to talk to
+              bots={
+                chat.kind === "group"
+                  ? chat.members.map((member) => member.bot)
+                  : []
+              }
+            />
           </div>
         </ResizablePanel>
         {/* Opened by the desktop button in the chat header */}

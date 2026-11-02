@@ -6,6 +6,7 @@ import { formatDistanceToNowStrict } from "date-fns"
 import { SearchIcon } from "lucide-react"
 
 import { ChatAvatar } from "@/components/chat-avatar"
+import { GroupChatAvatar } from "@/components/group-chat-avatar"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -80,7 +81,7 @@ function ChatSearch({ chats }: { chats: UserChat[] }) {
             <CommandEmpty>No chats found.</CommandEmpty>
             <CommandGroup heading="Chats">
               {chats.map((chat) => {
-                // Group chats aren't handled yet; use the first bot to join
+                // A direct chat has one bot, whose face and name it shows
                 const bot = chat.members[0]?.bot
                 const name = chat.name ?? bot?.name ?? "Untitled chat"
 
@@ -94,7 +95,13 @@ function ChatSearch({ chats }: { chats: UserChat[] }) {
                       router.push(`/chats/${chat.id}`)
                     }}
                   >
-                    <ChatAvatar seed={bot?.avatar ?? chat.id} />
+                    {chat.kind === "group" ? (
+                      <GroupChatAvatar
+                        seeds={chat.members.map((member) => member.bot.avatar)}
+                      />
+                    ) : (
+                      <ChatAvatar seed={bot?.avatar ?? chat.id} />
+                    )}
                     <div className="flex min-w-0 flex-1 flex-col">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="truncate font-medium">{name}</span>

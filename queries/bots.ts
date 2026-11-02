@@ -1,7 +1,7 @@
 import "server-only"
 
 import { auth } from "@clerk/nextjs/server"
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 
 import { db } from "@/db"
 import { bots } from "@/db/schema"
@@ -13,5 +13,15 @@ export async function getBotById(botId: string) {
 
   return db.query.bots.findFirst({
     where: and(eq(bots.id, botId), eq(bots.userId, userId)),
+  })
+}
+
+// The signed-in user's bots, oldest first
+export async function getUserBots() {
+  const { userId } = await auth.protect()
+
+  return db.query.bots.findMany({
+    where: eq(bots.userId, userId),
+    orderBy: asc(bots.createdAt),
   })
 }
