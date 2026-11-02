@@ -145,7 +145,12 @@ function ChatMessageRow({
 // `bots` are the bots a group chat can talk to; empty for a direct chat,
 // whose agent always answers as its only bot
 function Chat({ id, bots }: { id: string; bots: Bot[] }) {
-  const [botId, setBotId] = useState(bots[0]?.id)
+  const [pickedBotId, setBotId] = useState(bots[0]?.id)
+  // The picked bot may since have been removed from the group; fall back to
+  // its first bot rather than send to one that's gone
+  const botId = bots.some((bot) => bot.id === pickedBotId)
+    ? pickedBotId
+    : bots[0]?.id
   const transport = useTriggerChatTransport<typeof aiChat>({
     task: "ai-chat",
     accessToken: ({ chatId }) => mintChatAccessToken(chatId),
@@ -251,7 +256,9 @@ function ChatView({
                           </Badge>
                           {message.parts.map((part, i) =>
                             part.type === "text" ? (
-                              <MessageResponse key={i}>{part.text}</MessageResponse>
+                              <MessageResponse key={i}>
+                                {part.text}
+                              </MessageResponse>
                             ) : null
                           )}
                         </div>

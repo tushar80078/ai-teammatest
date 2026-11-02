@@ -12,12 +12,13 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
+import { getUserBots } from "@/queries/bots"
 import { getChatById } from "@/queries/chats"
 
 export default async function ChatPage(props: PageProps<"/chats/[chatId]">) {
   const { chatId } = await props.params
   // Protects the page and scopes the lookup to the signed-in user
-  const chat = await getChatById(chatId)
+  const [chat, bots] = await Promise.all([getChatById(chatId), getUserBots()])
   if (!chat) notFound()
 
   return (
@@ -25,7 +26,7 @@ export default async function ChatPage(props: PageProps<"/chats/[chatId]">) {
       <ResizablePanelGroup>
         <ResizablePanel id="chat" minSize="30%">
           <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <ChatHeader chat={chat} />
+            <ChatHeader chat={chat} bots={bots} />
             <Chat
               id={chat.id}
               // A group chat's composer picks which of its bots to talk to

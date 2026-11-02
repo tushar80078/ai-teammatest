@@ -7,8 +7,15 @@ import {
   defaultStorage,
   type ChatStartSessionParams,
 } from "@trigger.dev/sdk/ai"
-import { and, eq, inArray } from "drizzle-orm"
-import { refresh } from "next/cache"
+import {
+  and,
+  eq,
+  inArray,
+  notInArray,
+  TransactionRollbackError,
+} from "drizzle-orm"
+import { refresh, revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
 import { db } from "@/db"
 import {
@@ -96,4 +103,101 @@ export async function createGroupChat(
   // Re-render the dashboard layout so the sidebar re-runs getUserChats
   refresh()
   return { chat: group }
+}
+
+// Renames one of the signed-in user's group chats and sets its bots,
+// atomically. Bots that stay keep their place; only the user's own bots can
+// be added
+export async function updateGroupChat(
+  chatId: string,
+  input: InsertGroupChat
+): Promise<CreateGroupChatResult> {
+  const { userId } = await auth.protect()
+
+  const parsed = insertGroupChatSchema.safeParse(input)
+  if (!parsed.success) {
+    return { error: "Check the group details and try again." }
+  }
+  const { name, botIds } = parsed.data
+
+  const result = await db
+    .transaction(async (tx) => {
+      const [group] = await tx
+        .update(chats)
+        .set({ name })
+        .where(
+          and(
+            eq(chats.id, chatId),
+            eq(chats.userId, userId),
+            eq(chats.kind, "group")
+          )
+        )
+        .returning()
+      if (!group) return { error: "This group chat no longer exists." }
+
+      const owned = await tx
+        .select({ id: bots.id })
+        .from(bots)
+        .where(and(inArray(bots.id, botIds), eq(bots.userId, userId)))
+      if (owned.length !== new Set(botIds).size) {
+        // Throws, undoing the rename too; caught below
+        tx.rollback()
+      }
+
+      await tx
+        .delete(chatMembers)
+        .where(
+          and(
+            eq(chatMembers.chatId, chatId),
+            notInArray(chatMembers.botId, botIds)
+          )
+        )
+      await tx
+        .insert(chatMembers)
+        .values(owned.map((bot) => ({ chatId, botId: bot.id })))
+        .onConflictDoNothing()
+
+      return { chat: group }
+    })
+    .catch((error) => {
+      if (error instanceof TransactionRollbackError) {
+        return { error: "Some of these bots no longer exist." }
+      }
+      throw error
+    })
+
+  if ("error" in result) return result
+
+  // Re-render the layout and page so the sidebar, header, and composer's bot
+  // picker show the change
+  refresh()
+  return result
+}
+
+type DeleteGroupChatResult = { error: string }
+
+// Deletes one of the signed-in user's group chats; its bots stay. Then goes
+// home, since the current page is that chat
+export async function deleteGroupChat(
+  chatId: string
+): Promise<DeleteGroupChatResult> {
+  const { userId } = await auth.protect()
+
+  const [deleted] = await db
+    .delete(chats)
+    .where(
+      and(
+        eq(chats.id, chatId),
+        eq(chats.userId, userId),
+        eq(chats.kind, "group")
+      )
+    )
+    .returning({ id: chats.id })
+
+  if (!deleted) {
+    return { error: "This group chat no longer exists." }
+  }
+
+  revalidatePath("/", "layout")
+  redirect("/")
 }
