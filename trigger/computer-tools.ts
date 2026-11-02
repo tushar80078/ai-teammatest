@@ -1,6 +1,8 @@
-import { Daytona, type Sandbox } from "@daytona/sdk"
+import { Daytona, DaytonaFileNotFoundError, type Sandbox } from "@daytona/sdk"
 import { tool } from "ai"
 import { z } from "zod"
+
+import { MEMORY_FILE } from "@/lib/bot-memory"
 
 // Created on first use so importing this file never needs the env vars. The
 // endpoint is passed explicitly: the SDK refuses to pick it up implicitly
@@ -12,6 +14,22 @@ function getDaytona() {
     apiUrl: process.env.DAYTONA_API_URL,
   })
   return daytona
+}
+
+// The bot's memory file, read for its system prompt every turn: starts the
+// sandbox if it auto-stopped. A missing file (bots made before memory
+// existed) reads as empty; any other failure throws, so the caller can tell
+// "nothing remembered" from "memory unavailable"
+export async function readMemoryFile(sandboxId: string) {
+  const sandbox = await getDaytona().get(sandboxId)
+  if (sandbox.state !== "started") await sandbox.start()
+  try {
+    const content = await sandbox.fs.downloadFile(MEMORY_FILE)
+    return truncate(content.toString("utf8").trim())
+  } catch (error) {
+    if (error instanceof DaytonaFileNotFoundError) return ""
+    throw error
+  }
 }
 
 // Long command output and files are cut so one call can't flood the context

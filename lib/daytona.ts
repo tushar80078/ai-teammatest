@@ -2,6 +2,8 @@ import "server-only"
 
 import { Daytona, DaytonaNotFoundError } from "@daytona/sdk"
 
+import { MEMORY_FILE } from "@/lib/bot-memory"
+
 // The endpoint is passed explicitly: the SDK refuses to pick it up implicitly
 // when it also appears in .env.local
 const daytona = new Daytona({
@@ -9,9 +11,18 @@ const daytona = new Daytona({
   apiUrl: process.env.DAYTONA_API_URL,
 })
 
-// Creates an idle sandbox for a bot; nothing runs in it yet
+// Creates an idle sandbox for a bot, with its blank memory file; nothing runs
+// in it yet. A sandbox that can't be set up is deleted again
 export async function createBotSandbox(botId: string, userId: string) {
   const sandbox = await daytona.create({ labels: { botId, userId } })
+  try {
+    await sandbox.fs.uploadFile(Buffer.from(""), MEMORY_FILE)
+  } catch (error) {
+    await deleteBotSandbox(sandbox.id).catch((cleanupError) =>
+      console.error("Failed to delete half-created sandbox", cleanupError)
+    )
+    throw error
+  }
   return sandbox.id
 }
 
